@@ -2,75 +2,123 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-let position = { x: 50, y: 50 };
-let jetpackCollected = false;
-let message = document.getElementById("message");
+const tileSize = 32;
+const map = [
+  "........................",
+  "........................",
+  "........................",
+  ".......k...............T",
+  ".....................####",
+  "...k.................####",
+  "########....####....#####",
+  "#######L#######L#########"
+];
 
-const treasure = { x: 250, y: 50, width: 30, height: 30 };
-const jetpack = { x: 150, y: 100, width: 20, height: 20 };
-const cliff = { x: 200, y: 0, width: 10, height: 200 };
+const images = {};
+const keys = [];
+let player = { x: 32, y: 32, vx: 0, vy: 0, grounded: false };
+let collectedKeys = 0;
 
-function draw() {
-  ctx.clearRect(0, 0, 400, 200);
-
-  // Explorer
-  ctx.fillStyle = "blue";
-  ctx.fillRect(position.x, position.y, 20, 20);
-
-  // Cliff
-  ctx.fillStyle = "brown";
-  ctx.fillRect(cliff.x, cliff.y, cliff.width, cliff.height);
-
-  // Jetpack
-  if (!jetpackCollected) {
-    ctx.fillStyle = "gray";
-    ctx.fillRect(jetpack.x, jetpack.y, jetpack.width, jetpack.height);
-  }
-
-  // Treasure
-  ctx.fillStyle = "gold";
-  ctx.fillRect(treasure.x, treasure.y, treasure.width, treasure.height);
-}
-
-function checkCollisions() {
-  if (
-    !jetpackCollected &&
-    position.x < jetpack.x + jetpack.width &&
-    position.x + 20 > jetpack.x &&
-    position.y < jetpack.y + jetpack.height &&
-    position.y + 20 > jetpack.y
-  ) {
-    jetpackCollected = true;
-    message.textContent = "You got the Jetpack! Now cross the cliff!";
-  }
-
-  if (
-    !jetpackCollected &&
-    position.x + 20 > cliff.x &&
-    position.x < cliff.x + cliff.width
-  ) {
-    position.x = cliff.x - 21;
-    message.textContent = "You need the Jetpack to cross the cliff!";
-  }
-
-  if (
-    position.x < treasure.x + treasure.width &&
-    position.x + 20 > treasure.x &&
-    position.y < treasure.y + treasure.height &&
-    position.y + 20 > treasure.y
-  ) {
-    message.textContent = "You found the treasure! You're amazing, Oliver!";
+function loadImages() {
+  const assets = {
+    grass: "#228B22",
+    dirt: "#8B4513",
+    lava: "#FF4500",
+    key: "yellow",
+    treasure: "gold",
+    player: "#00f"
+  };
+  for (let name in assets) {
+    images[name] = assets[name]; // Using colors instead of actual images
   }
 }
 
-function updatePosition(e) {
-  if (e.key === "ArrowRight") position.x += 10;
-  if (e.key === "ArrowLeft") position.x -= 10;
-  if (e.key === "ArrowUp") position.y -= 10;
-  if (e.key === "ArrowDown") position.y += 10;
-  checkCollisions();
-  draw();
+function drawTile(x, y, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
 }
 
-window.addEventListener("keydown", updatePosition);
-draw();
+function drawMap() {
+  keys.length = 0;
+  for (let y = 0; y < map.length; y++) {
+    for (let x = 0; x < map[y].length; x++) {
+      let char = map[y][x];
+      if (char === "#") drawTile(x, y, images.grass);
+      if (char === "L") drawTile(x, y, images.lava);
+      if (char === "k") {
+        drawTile(x, y, images.key);
+        keys.push({ x: x * tileSize, y: y * tileSize });
+      }
+      if (char === "T") drawTile(x, y, images.treasure);
+    }
+  }
+}
+
+function drawPlayer() {
+  ctx.fillStyle = images.player;
+  ctx.fillRect(player.x, player.y, tileSize, tileSize);
+}
+
+function update() {
+  player.vy += 1.5; // gravity
+  player.x += player.vx;
+  player.y += player.vy;
+
+  if (player.y > canvas.height) {
+    player.x = 32; player.y = 32; collectedKeys = 0;
+    alert("You fell in lava! Try again!");
+  }
+
+  player.grounded = false;
+  for (let y = 0; y < map.length; y++) {
+    for (let x = 0; x < map[y].length; x++) {
+      let tile = map[y][x];
+      if (tile === "#" || tile === "L") {
+        let tx = x * tileSize, ty = y * tileSize;
+        if (player.x < tx + tileSize && player.x + tileSize > tx &&
+            player.y < ty + tileSize && player.y + tileSize > ty) {
+          if (tile === "L") {
+            player.x = 32; player.y = 32; collectedKeys = 0;
+            alert("You touched lava! Be careful!");
+            return;
+          }
+          if (player.vy > 0) {
+            player.y = ty - tileSize;
+            player.vy = 0;
+            player.grounded = true;
+          }
+        }
+      }
+    }
+  }
+
+  keys.forEach((k, i) => {
+    if (player.x < k.x + tileSize && player.x + tileSize > k.x &&
+        player.y < k.y + tileSize && player.y + tileSize > k.y) {
+      keys.splice(i, 1);
+      collectedKeys += 1;
+      if (collectedKeys === 3) alert("You collected all keys! Go to the treasure!");
+    }
+  });
+}
+
+function loop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawMap();
+  drawPlayer();
+  update();
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft") player.vx = -5;
+  if (e.key === "ArrowRight") player.vx = 5;
+  if (e.key === " " && player.grounded) player.vy = -18;
+});
+
+window.addEventListener("keyup", (e) => {
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") player.vx = 0;
+});
+
+loadImages();
+loop();
