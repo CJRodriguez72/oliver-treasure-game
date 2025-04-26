@@ -1,4 +1,4 @@
-
+// Pixel-Art Treasure Hunt Explorer for Oliver
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -14,28 +14,23 @@ const map = [
   "#######L#######L#########"
 ];
 
-const images = {};
+const assets = {};
+const assetNames = ["grass", "dirt", "lava", "player", "key", "chest"];
+let assetsLoaded = 0;
 const keys = [];
 let player = { x: 32, y: 32, vx: 0, vy: 0, grounded: false };
 let collectedKeys = 0;
 
-function loadImages() {
-  const assets = {
-    grass: "#228B22",
-    dirt: "#8B4513",
-    lava: "#FF4500",
-    key: "yellow",
-    treasure: "gold",
-    player: "#00f"
-  };
-  for (let name in assets) {
-    images[name] = assets[name]; // Using colors instead of actual images
-  }
-}
-
-function drawTile(x, y, color) {
-  ctx.fillStyle = color;
-  ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+function loadAssets(callback) {
+  assetNames.forEach(name => {
+    const img = new Image();
+    img.src = `assets/${name}.png`;
+    img.onload = () => {
+      assetsLoaded++;
+      if (assetsLoaded === assetNames.length) callback();
+    };
+    assets[name] = img;
+  });
 }
 
 function drawMap() {
@@ -43,24 +38,23 @@ function drawMap() {
   for (let y = 0; y < map.length; y++) {
     for (let x = 0; x < map[y].length; x++) {
       let char = map[y][x];
-      if (char === "#") drawTile(x, y, images.grass);
-      if (char === "L") drawTile(x, y, images.lava);
+      if (char === "#") ctx.drawImage(assets.grass, x * tileSize, y * tileSize, tileSize, tileSize);
+      if (char === "L") ctx.drawImage(assets.lava, x * tileSize, y * tileSize, tileSize, tileSize);
       if (char === "k") {
-        drawTile(x, y, images.key);
+        ctx.drawImage(assets.key, x * tileSize, y * tileSize, tileSize, tileSize);
         keys.push({ x: x * tileSize, y: y * tileSize });
       }
-      if (char === "T") drawTile(x, y, images.treasure);
+      if (char === "T") ctx.drawImage(assets.chest, x * tileSize, y * tileSize, tileSize, tileSize);
     }
   }
 }
 
 function drawPlayer() {
-  ctx.fillStyle = images.player;
-  ctx.fillRect(player.x, player.y, tileSize, tileSize);
+  ctx.drawImage(assets.player, player.x, player.y, tileSize, tileSize);
 }
 
 function update() {
-  player.vy += 1.5; // gravity
+  player.vy += 1.5;
   player.x += player.vx;
   player.y += player.vy;
 
@@ -96,7 +90,7 @@ function update() {
     if (player.x < k.x + tileSize && player.x + tileSize > k.x &&
         player.y < k.y + tileSize && player.y + tileSize > k.y) {
       keys.splice(i, 1);
-      collectedKeys += 1;
+      collectedKeys++;
       if (collectedKeys === 3) alert("You collected all keys! Go to the treasure!");
     }
   });
@@ -120,5 +114,4 @@ window.addEventListener("keyup", (e) => {
   if (e.key === "ArrowLeft" || e.key === "ArrowRight") player.vx = 0;
 });
 
-loadImages();
-loop();
+loadAssets(loop);
